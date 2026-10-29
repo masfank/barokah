@@ -1,6 +1,7 @@
-const { EmbedBuilder } = require("discord.js");
-const handler = require("../Data/handlerData"); // pastikan pakai handlerData.js
+const handler = require("../Data/handlerData");
 const config = require("../Data/config");
+const { card, COLORS } = require("../lib/card");
+const { emoji, setGuild } = require("../lib/emoji");
 
 module.exports = {
     name: "join",
@@ -16,11 +17,13 @@ module.exports = {
                 });
             }
 
-            const roleId = config.getConfig().handlerRoleId; // diatur via admin panel
+            setGuild(interaction.guild);
+
+            const roleId = config.getConfig().handlerRoleId;
 
             if (!interaction.member.roles.cache.has(roleId)) {
                 return interaction.editReply({
-                    content: "❌ You Failed To Join Because You Are Not A Genuine Handler.. LOLL IDIOT"
+                    content: "❌ Kamu belum punya role handler."
                 });
             }
 
@@ -29,17 +32,15 @@ module.exports = {
 
             if (!maxJob || maxJob < 1 || maxJob > 2) {
                 return interaction.editReply({
-                    content: "❌ Max Job Must be 1 or 2."
+                    content: "❌ Max Job harus 1 atau 2."
                 });
             }
 
-            // ================= CEK DATA LAMA =================
             const oldData = handler.getHandler(interaction.user.id);
 
-            const existing = oldData && oldData.maxJob > 0 ? true : false;
-            if (existing) {
+            if (oldData && oldData.maxJob > 0) {
                 return interaction.editReply({
-                    content: "❌ You've Joined. Use /leave If You Want To Change Jobs.."
+                    content: "❌ Kamu sudah join. Pakai /leave dulu kalau mau ganti."
                 });
             }
 
@@ -50,19 +51,16 @@ module.exports = {
 
             if (jobTypes.length === 0) {
                 return interaction.editReply({
-                    content: "❌ Please Fill In At Least 1 Ready Job."
+                    content: "❌ Isi minimal 1 ready job."
                 });
             }
 
             if (jobTypes.length > maxJob) {
                 return interaction.editReply({
-                    content: `❌ Number of Ready Jobs (${jobTypes.length}) Exceeds Max Job (${maxJob}).`
+                    content: `❌ Ready job (${jobTypes.length}) melebihi Max Job (${maxJob}).`
                 });
             }
 
-            // ============================== 
-            // SIMPAN HANDLER KE JSON (gabung data lama jika ada)
-            // ==============================
             const joined = handler.joinHandler(interaction.user.id, maxJob);
 
             if (!joined) {
@@ -71,29 +69,22 @@ module.exports = {
                 });
             }
 
-            // Tambahkan jobTypes ke handler dan pastikan tersimpan
-            jobTypes.forEach(j => {
-                handler.addService(interaction.user.id, j);
+            jobTypes.forEach(j => handler.addService(interaction.user.id, j));
+
+            const payload = card({
+                heading: `## ${emoji("done")} Handler Joined`,
+                thumbnail: interaction.user.displayAvatarURL({ extension: "png", size: 128 }),
+                fields: [
+                    { label: `${emoji("bot")} Handler`, value: `${interaction.user}` },
+                    { label: `${emoji("target")} Max Job`, value: String(maxJob) },
+                    { label: `${emoji("online")} Status`, value: `Ready (0/${maxJob})` },
+                    { label: `${emoji("tools")} Ready Job`, value: jobTypes.join(" & ") }
+                ],
+                footer: "Barokah • siap menerima job",
+                color: COLORS.success
             });
 
-            // ============================== 
-            // BALAS KE USER
-            // ==============================
-            const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle("✅ Handler Joined!")
-                .setDescription(
-`**Handler :**
-${interaction.user}
-**Max Job :**
-${maxJob}
-**Status :**
-🟢 Ready (0/${maxJob})
-**Ready Job :**
-${jobTypes.join(" & ")}` 
-                );
-
-            await interaction.editReply({ embeds: [embed] });
+            await interaction.editReply(payload);
         } catch (error) {
             console.error("JOIN ERROR:", error);
 

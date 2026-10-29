@@ -45,6 +45,28 @@ Setelah deploy selesai:
 3. Buka admin panel → **Restore Backup** dengan file tadi
 4. (Alternatif tanpa backup) gunakan **Sync dari Channel Ranking** selama leaderboard masih ada di channel
 
+## 📱 Menjalankan di Termux (Android)
+
+```bash
+pkg update && pkg install nodejs-lts git
+termux-wake-lock
+git clone <repo-url> bot-barokah && cd bot-barokah
+chmod +x start-termux.sh
+./start-termux.sh
+```
+
+`start-termux.sh` interaktif: cek Node >=20, install dependency, tanya TOKEN/CLIENT_ID/GUILD_ID/ADMIN_PASSWORD lalu tulis `.env`, tawarkan deploy commands, dan jalankan bot. `DATA_DIR` otomatis dihapus (Termux pakai folder `./Data`).
+
+Jalan di background tanpa mati saat layar off:
+
+```bash
+termux-wake-lock
+nohup ./start-termux.sh > bot.log 2>&1 &
+tail -f bot.log
+```
+
+Auto-start setelah HP reboot (opsional): `pkg install termux-boot`, lalu simpan perintah di `~/.termux/boot/start-bot.sh`.
+
 ## 🛠️ Menjalankan Lokal
 
 ```bash
@@ -75,6 +97,9 @@ npm start
 | `/leave` | Keluar / tidak ready |
 | `/status` | Cek status handler |
 | `/ranking` | Lihat leaderboard handler |
+| `/sticky set` | Pasang catatan yang selalu menempel di dasar channel (butuh Manage Messages) |
+| `/sticky remove` | Hapus sticky dari channel |
+| `/sticky list` | Lihat channel yang punya sticky |
 | `/menu` | Tampilkan menu bot |
 
 ## 🗑️ Menghapus Semua Command

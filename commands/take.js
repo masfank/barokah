@@ -1,6 +1,13 @@
-const { EmbedBuilder } = require("discord.js");
-const handler = require("../Data/handlerData"); // pakai handlerData JSON
+const handler = require("../Data/handlerData");
 const config = require("../Data/config");
+const { card, COLORS } = require("../lib/card");
+
+/** Ikon status slot job. */
+function statusIcon(current, max) {
+    if (current >= max) return "🔴";
+    if (current > 0) return "🟡";
+    return "🟢";
+}
 
 module.exports = {
     name: "take",
@@ -8,7 +15,7 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            await interaction.deferReply(); // biar gak timeout (di dalam try agar error tetap terbalas)
+            await interaction.deferReply();
 
             if (!interaction.guild) {
                 return interaction.editReply({
@@ -16,11 +23,10 @@ module.exports = {
                 });
             }
 
-            // ================= CEK ROLE HANDLER =================
             const handlerRoleId = config.getConfig().handlerRoleId;
             if (!interaction.member.roles.cache.has(handlerRoleId)) {
                 return interaction.editReply({
-                    content: "❌ You Failed To Join Because You Are Not A Genuine Handler."
+                    content: "❌ Kamu belum punya role handler."
                 });
             }
 
@@ -28,7 +34,7 @@ module.exports = {
 
             if (!handlerData) {
                 return interaction.editReply({
-                    content: "❌ You haven't joined as a handler."
+                    content: "❌ Kamu belum join sebagai handler."
                 });
             }
 
@@ -42,11 +48,10 @@ module.exports = {
 
             if (currentJob >= maxJob) {
                 return interaction.editReply({
-                    content: `❌ Job slots full (${currentJob}/${maxJob}). Use /done first.`
+                    content: `❌ Slot job penuh (${currentJob}/${maxJob}). Pakai /done dulu.`
                 });
             }
 
-            // ================= SIMPAN DATA JOB =================
             const success = handler.addJob(interaction.user.id, {
                 order,
                 howMany,
@@ -56,58 +61,44 @@ module.exports = {
 
             if (!success) {
                 return interaction.editReply({
-                    content: "❌ Failed to take the job."
+                    content: "❌ Gagal mengambil job."
                 });
             }
 
-            // Update currentJob
             const updatedData = handler.getHandler(interaction.user.id);
             const updatedCurrent = updatedData.currentJob;
             const updatedMax = updatedData.maxJob;
 
-            let statusIcon = "🟢";
-            if (updatedCurrent < updatedMax) statusIcon = "🟡";
-            if (updatedCurrent >= updatedMax) statusIcon = "🔴";
+            const payload = card({
+                heading: "## ✅ Service By Barokah!",
+                thumbnail: interaction.user.displayAvatarURL({ extension: "png", size: 128 }),
+                fields: [
+                    { label: "👤 Customer", value: `${customer}` },
+                    { label: "🤖 Handler", value: `${interaction.user}` },
+                    { label: "📦 Service", value: order },
+                    { label: "⏱ Time/Hours", value: howMany },
+                    { label: "🌍 World", value: world },
+                    { label: "⏳ Status Job", value: `(${updatedCurrent}/${updatedMax}) ${statusIcon(updatedCurrent, updatedMax)}` }
+                ],
+                lines: [
+                    "> Service Now Process.\n> Service sudah diterima. Handler akan /done setelah selesai."
+                ],
+                footer: "Barokah • job tercatat",
+                color: COLORS.primary
+            });
 
-            const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle("✅ Service By Barokah!")
-                .setDescription(
-`👤 **Customer :**
-${customer}
-🤖 **Handler :**
-${interaction.user}
-━━━━━━━━━━━━━━
-**Service :**
-${order}
-**Time/Hours :**
-${howMany}
-**World :**
-${world}
-**Current Service :**
-Service Now Process.
-━━━━━━━━━━━━━━
-⏳ **Status Job :**
-(${updatedCurrent}/${updatedMax}) ${statusIcon}
-📝 **Notes :**
-Your service has been successfully received. Once it is complete, the handler will do /done.`
-                )
-                .setTimestamp();
-
-            // ================= KIRIM KE CHANNEL LOG =================
             const logChannelId = config.getConfig().takeLogChannelId;
             const logChannel = await interaction.guild.channels.fetch(logChannelId).catch(() => null);
 
             if (logChannel && logChannel.isTextBased()) {
-                await logChannel.send({ embeds: [embed] })
+                await logChannel.send(payload)
                     .then(() => console.log("✅ Log channel sent."))
                     .catch(err => console.error("❌ Failed to send /take log (cek permission bot di channel):", err));
             } else {
                 console.warn(`⚠️ Take log channel tidak ditemukan: ${logChannelId} (cek Take Log Channel ID di admin panel)`);
             }
 
-            // ================= BALAS KE USER =================
-            await interaction.editReply({ embeds: [embed] });
+            await interaction.editReply(payload);
 
         } catch (error) {
             console.error("❌ TAKE ERROR:", error);

@@ -10,15 +10,12 @@ node_modules/
 *.log
 npm-debug.log*
 
-# Data kadaluarsa (data aktif ada di Data/handlerData.json)
+# SEMUA data runtime (state bot + TOKEN user) — JANGAN pernah commit.
+# File .json di Data/ dibuat otomatis oleh kode saat pertama kali dijalankan,
+# jadi fresh clone/deploy tanpa satu pun file data tetap jalan.
+# File .js di Data/ adalah KODE (bukan data) dan tetap di-track.
+Data/*.json
 /handlerData.json
-
-# Config runtime (dibuat otomatis dari default di Data/config.js)
-Data/config.json
-
-# Data runtime auto-click (BERISI TOKEN user — JANGAN commit!)
-Data/autoclick-accounts.json
-Data/autoclick-config.json
 admin/autoclick/autoclick-config.json
 
 # Local tooling
@@ -35,3 +32,7 @@ Thumbs.db
 # JCE context index runtime state
 .opencode-jce/
 .opencode-context.md
+
+# Agent session logs (berisi riwayat percakapan & nilai rahasia)
+.omo/
+

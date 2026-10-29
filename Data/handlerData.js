@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { EmbedBuilder } = require("discord.js");
+const { buildLeaderboard } = require("../lib/leaderboard");
 
 // ================= LOKASI DATA =================
 // Di Railway (atau hosting lain), set DATA_DIR=/data agar file JSON
@@ -10,18 +10,16 @@ const dataDir = process.env.DATA_DIR && process.env.DATA_DIR.trim() !== ""
     ? process.env.DATA_DIR
     : __dirname;
 const dataPath = path.join(dataDir, DATA_FILE_NAME);
-const seedPath = path.join(__dirname, DATA_FILE_NAME);
 
-// Salin data bawaan ke volume saat pertama kali deploy (jika ada & volume kosong)
-function seedInitialData() {
+// Pastikan folder data ada. Fresh deploy / volume baru / DATA_DIR belum dibuat
+// tidak boleh bikin writeFileSync gagal (ENOENT) — buat sendiri di sini.
+function ensureDataDir() {
     try {
-        if (!fs.existsSync(dataPath) && fs.existsSync(seedPath)) {
-            fs.copyFileSync(seedPath, dataPath);
-            console.log(`📦 Data awal disalin ke volume: ${dataPath}`);
-        }
+        fs.mkdirSync(dataDir, { recursive: true });
     } catch (err) {
-        console.error("SEED DATA ERROR:", err);
+        if (err.code !== "EEXIST") console.error("ENSURE DATA DIR ERROR:", err);
     }
+    return fs.existsSync(dataDir);
 }
 
 let handlers = new Map();
@@ -31,6 +29,8 @@ let rankingMessageId = null;
 // ================= LOAD DATA =================
 function loadData() {
     try {
+        if (!ensureDataDir()) return; // folder data tidak bisa dibuat → biarkan kosong
+
         if (!fs.existsSync(dataPath)) {
             fs.writeFileSync(
                 dataPath,
@@ -66,6 +66,7 @@ function loadData() {
 // ================= SAVE DATA =================
 function saveData() {
     try {
+        ensureDataDir();
         const obj = {
             handlers: Object.fromEntries(handlers),
             rankingChannelId,
@@ -445,33 +446,18 @@ async function updateLeaderboardEmbed(guild) {
         const channel = await guild.channels.fetch(rankingChannelId).catch(() => null);
         if (!channel || !channel.isTextBased()) return;
 
-        const allHandlers = Object.fromEntries(handlers);
-
-        const sortedHandlers = Object.entries(allHandlers)
-            .sort((a, b) => (b[1].totalDone || 0) - (a[1].totalDone || 0));
-
-        let description = "━━━━━━━━━━━━━━\n**LeaderBoard Handler!**\n━━━━━━━━━━━━━━\n";
-        for (const [userId, data] of sortedHandlers) {
-            const totalDone = data.totalDone || 0;
-            description += 
-`🤖 **Handler :**
- <@${userId}> 
-📊 **Total Job :** ${totalDone}
-━━━━━━━━━━━━━━
-`;
-        }
-        description += "";
-
-        const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setDescription(description)
-            .setTimestamp();
+        const payload = buildLeaderboard(Object.fromEntries(handlers));
 
         const message = await channel.messages.fetch(rankingMessageId).catch(() => null);
-        if (message) {
-            await message.edit({ embeds: [embed] });
+        // Pesan lama (embed/content) tidak bisa di-edit jadi V2 — Discord menolak
+        // legacy fields bercampur Components V2. Hapus lalu kirim ulang.
+        if (message && (message.embeds.length > 0 || message.content)) {
+            await message.delete().catch(() => null);
+        }
+        if (message && message.embeds.length === 0 && !message.content) {
+            await message.edit(payload);
         } else {
-            const newMsg = await channel.send({ embeds: [embed] });
+            const newMsg = await channel.send(payload);
             setRankingMessage(newMsg.id);
         }
 
@@ -481,7 +467,6 @@ async function updateLeaderboardEmbed(guild) {
 }
 
 // ================= INIT =================
-seedInitialData();
 loadData();
 
 // ================= EXPORT =================

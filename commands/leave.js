@@ -1,75 +1,78 @@
-// File: leave.js
-const { EmbedBuilder } = require("discord.js");
-const handler = require("../Data/handlerData"); // pakai handlerData.js
+const handler = require("../Data/handlerData");
+const { card, COLORS } = require("../lib/card");
+const { emoji, setGuild } = require("../lib/emoji");
 
 module.exports = {
-name: "leave",
-description: "Exit Handler State - TotalDone reduced according to currentJob",
+    name: "leave",
+    description: "Exit Handler State - TotalDone reduced according to currentJob",
 
-async execute(interaction) {  
-    try {  
-        // Biar gak timeout  
-        await interaction.deferReply();  
+    async execute(interaction) {
+        try {
+            await interaction.deferReply();
 
-        // ================= AMBIL DATA HANDLER LANGSUNG DARI MAP =================  
-        const allHandlers = handler.getAllHandlers();  
-        const data = allHandlers[interaction.user.id];  
+            if (interaction.guild) setGuild(interaction.guild);
 
-        if (!data) {  
-            const embed = new EmbedBuilder()  
-                .setColor(0x5865F2)  
-                .setTitle("❌ Leave Gagal")  
-                .setDescription("You have not joined as a handler, you cannot leave..");  
+            const allHandlers = handler.getAllHandlers();
+            const data = allHandlers[interaction.user.id];
 
-            return interaction.editReply({ embeds: [embed] });  
-        }  
+            if (!data) {
+                return interaction.editReply(card({
+                    heading: `## ${emoji("error")} Leave Gagal`,
+                    lines: ["Kamu belum join sebagai handler, jadi tidak bisa leave."],
+                    color: COLORS.danger
+                }));
+            }
 
-        // ================= HITUNG TOTAL DONE BARU SESUAI CURRENT JOB =================  
-        const currentTotalDone = data.totalDone || 0;  
-        const currentJob = data.currentJob || data.jobs.length || 0;  
-        let newTotalDone = currentTotalDone;  
+            const currentTotalDone = data.totalDone || 0;
+            const currentJob = data.currentJob || data.jobs.length || 0;
+            const newTotalDone = currentJob > 0
+                ? Math.max(0, currentTotalDone - currentJob)
+                : currentTotalDone;
 
-        if (currentJob > 0) {  
-            newTotalDone = Math.max(0, currentTotalDone - currentJob);  
-            data.totalDone = newTotalDone; // update dulu ke Map & JSON  
-            handler.saveData();  
-        }  
+            data.totalDone = newTotalDone;
+            data.jobs = [];
+            data.maxJob = 0;
+            data.currentJob = 0;
+            data.services = [];
+            handler.saveData();
 
-        // ================= RESET JOBS, MAXJOB, SERVICES =================  
-        data.jobs = [];  
-        data.maxJob = 0;  
-        data.currentJob = 0;  
-        data.services = [];  
+            const deducted = currentJob > 0;
 
-        // ================= SIMPAN KEMBALI =================  
-        handler.saveData();  
+            const payload = card({
+                heading: `## ${emoji("done")} Handler Left`,
+                thumbnail: interaction.user.displayAvatarURL({ extension: "png", size: 128 }),
+                fields: [
+                    { label: `${emoji("bot")} Handler`, value: `${interaction.user}` },
+                    { label: `${emoji("note")} Total Done`, value: String(newTotalDone) }
+                ],
+                lines: [
+                    deducted
+                        ? `⚠️ ${currentJob} job yang belum selesai dipotong dari Total Done.`
+                        : "> Semua job sudah selesai, Total Done tidak berubah."
+                ],
+                footer: "Barokah • status handler dilepas",
+                color: deducted ? COLORS.danger : COLORS.muted
+            });
 
-        // ================= EMBED BALAS KE USER =================  
-        const embed = new EmbedBuilder()  
-            .setColor(0x5865F2)  
-            .setTitle("✅ Handler Left")  
-            .setDescription(  
-`👤 **Handler :**
- ${interaction.user} 
-Hooray you successfully exited the handler state. 
-📊 **Total Done :** ${newTotalDone} 
-⚠️ All unfinished jobs have been deducted from Total Done.`);
+            await interaction.editReply(payload);
 
-        await interaction.editReply({ embeds: [embed] });  
+        } catch (error) {
+            console.error("LEAVE ERROR:", error);
 
-    } catch (error) {  
-        console.error("LEAVE ERROR:", error);  
-
-        if (!interaction.replied && !interaction.deferred) {  
-            await interaction.reply({  
-                content: "❌ Terjadi error pada sistem.",  
-                ephemeral: true  
-            });  
-        } else if (interaction.deferred && !interaction.replied) {  
-            await interaction.editReply({  
-                content: "❌ Terjadi error setelah proses."  
-            });  
-        }  
-    }  
-}  
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: "❌ Terjadi error pada sistem.",
+                        flags: 64
+                    });
+                } else if (interaction.deferred && !interaction.replied) {
+                    await interaction.editReply({
+                        content: "❌ Terjadi error setelah proses."
+                    });
+                }
+            } catch (replyErr) {
+                console.error("❌ Gagal kirim balasan error /leave:", replyErr);
+            }
+        }
+    }
 };

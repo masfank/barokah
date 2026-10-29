@@ -9,7 +9,10 @@ const path = require("path");
 const { Client, Collection, GatewayIntentBits } = require("discord.js");
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages // dipakai sticky note (messageCreate)
+    ]
 });
 
 client.commands = new Collection();
@@ -110,6 +113,8 @@ client.login(process.env.TOKEN)
         console.log("🔑 Bot berhasil login.");
         // Berikan client ke engine AutoPost untuk DM notifikasi error posting.
         require("./admin/autopost/engine").setClient(client);
+        // Sticky note: geser catatan ke bawah setiap ada pesan baru.
+        require("./admin/sticky/engine").register(client);
         startAdminServer(client);
     })
     .catch(err => console.error("❌ Gagal login bot:", err));

@@ -23,9 +23,21 @@ const DISCORD_ID_PATTERN = /^\d{5,25}$/;
 
 let config = { ...DEFAULT_CONFIG };
 
+// Pastikan folder data ada (fresh deploy / volume DATA_DIR baru).
+function ensureDataDir() {
+    try {
+        fs.mkdirSync(dataDir, { recursive: true });
+    } catch (err) {
+        if (err.code !== "EEXIST") console.error("ENSURE DATA DIR ERROR:", err);
+    }
+    return fs.existsSync(dataDir);
+}
+
 // ================= LOAD =================
 function loadConfig() {
     try {
+        if (!ensureDataDir()) return;
+
         if (!fs.existsSync(configPath)) {
             fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2));
             config = { ...DEFAULT_CONFIG };
@@ -51,6 +63,7 @@ function loadConfig() {
 // ================= SAVE =================
 function saveConfig() {
     try {
+        ensureDataDir();
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     } catch (err) {
         console.error("SAVE CONFIG ERROR:", err);

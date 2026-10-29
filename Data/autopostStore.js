@@ -33,22 +33,18 @@ const dataDir = process.env.DATA_DIR && process.env.DATA_DIR.trim() !== ""
     ? process.env.DATA_DIR
     : __dirname;
 const STORE_PATH = path.join(dataDir, DATA_FILE_NAME);
-const seedPath = path.join(__dirname, DATA_FILE_NAME);
 const DEFAULT_USER = { username: "", token: "", channels: [] };
 const DEFAULT_SETTINGS = { bannerUrl: "", whitelistRoleId: "", setupRoleId: "" };
 
-// Salin data bawaan ke volume saat pertama kali deploy (jika ada & volume kosong)
-function seedInitialData() {
+// Pastikan folder data ada (fresh deploy / volume DATA_DIR baru).
+function ensureDataDir() {
     try {
-        if (!fs.existsSync(STORE_PATH) && fs.existsSync(seedPath)) {
-            fs.copyFileSync(seedPath, STORE_PATH);
-            console.log(`📦 Data awal disalin ke volume: ${STORE_PATH}`);
-        }
+        fs.mkdirSync(dataDir, { recursive: true });
     } catch (err) {
-        console.error("SEED DATA ERROR:", err);
+        if (err.code !== "EEXIST") console.error("ENSURE DATA DIR ERROR:", err);
     }
+    return fs.existsSync(dataDir);
 }
-seedInitialData();
 
 let cache = loadStore();
 
@@ -68,7 +64,12 @@ function loadStore() {
 }
 
 function saveStore() {
-    fs.writeFileSync(STORE_PATH, JSON.stringify(cache, null, 2), "utf8");
+    try {
+        ensureDataDir();
+        fs.writeFileSync(STORE_PATH, JSON.stringify(cache, null, 2), "utf8");
+    } catch (err) {
+        console.error("SAVE AUTOPOST STORE ERROR:", err);
+    }
 }
 
 // ================= USER CONFIG =================

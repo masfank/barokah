@@ -82,6 +82,40 @@ new SlashCommandBuilder()
         .setName("ranking")
         .setDescription("See Rank Handler"),
 
+    new SlashCommandBuilder()
+        .setName("sticky")
+        .setDescription("Sticky note: catatan yang selalu menempel di dasar channel")
+        .addSubcommand(sub =>
+            sub.setName("set")
+                .setDescription("Pasang atau perbarui sticky note")
+                .addStringOption(option =>
+                    option.setName("content")
+                        .setDescription("Isi catatan (markdown didukung)")
+                        .setRequired(true)
+                        .setMaxLength(2000)
+                )
+                .addChannelOption(option =>
+                    option.setName("channel")
+                        .setDescription("Channel target (default: channel ini)")
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(false)
+                )
+        )
+        .addSubcommand(sub =>
+            sub.setName("remove")
+                .setDescription("Hapus sticky note dari channel")
+                .addChannelOption(option =>
+                    option.setName("channel")
+                        .setDescription("Channel target (default: channel ini)")
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(false)
+                )
+        )
+        .addSubcommand(sub =>
+            sub.setName("list")
+                .setDescription("Lihat daftar channel yang punya sticky")
+        ),
+
     // /autopost dengan opsi channel target (owner-only di handler)
     new SlashCommandBuilder()
         .setName("autopost")
